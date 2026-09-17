@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 export default function Home() {
   const tournaments = [
     { id: 1, title: "Solo Match", time: "Today 8 PM", prize: "100 Coins", slots: "45/50", mode: "Solo" },
@@ -19,17 +21,20 @@ export default function Home() {
         <h1 style={{ color: '#ff6b00', fontSize: '22px', margin: 0 }}>
           🎮 FF Arena
         </h1>
-        <button style={{ 
-          background: '#ff6b00', 
-          color: 'white', 
-          border: 'none', 
-          padding: '8px 18px', 
-          borderRadius: '8px',
-          fontSize: '14px',
-          fontWeight: 'bold'
-        }}>
-          Login
-        </button>
+        <Link href="/login">
+          <button style={{ 
+            background: '#ff6b00', 
+            color: 'white', 
+            border: 'none', 
+            padding: '8px 18px', 
+            borderRadius: '8px',
+            fontSize: '14px',
+            fontWeight: 'bold',
+            cursor: 'pointer'
+          }}>
+            Login
+          </button>
+        </Link>
       </header>
 
       <div style={{ 
@@ -110,18 +115,21 @@ export default function Home() {
               <span style={{ color: '#aaa', fontSize: '13px' }}>🎮 {t.mode}</span>
             </div>
             
-            <button style={{
-              width: '100%',
-              background: 'linear-gradient(135deg, #ff6b00, #ff0040)',
-              color: 'white',
-              border: 'none',
-              padding: '14px',
-              borderRadius: '8px',
-              fontSize: '16px',
-              fontWeight: 'bold',
-            }}>
-              Join Free →
-            </button>
+            <Link href="/login">
+              <button style={{
+                width: '100%',
+                background: 'linear-gradient(135deg, #ff6b00, #ff0040)',
+                color: 'white',
+                border: 'none',
+                padding: '14px',
+                borderRadius: '8px',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                cursor: 'pointer'
+              }}>
+                Join Free →
+              </button>
+            </Link>
           </div>
         ))}
       </div>
