@@ -2,12 +2,13 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { auth, getUserData } from '../firebase';
+import { auth, getUserData, getUserTournaments } from '../firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 
 export default function DashboardPage() {
   const [user, setUser] = useState<any>(null);
   const [userData, setUserData] = useState<any>(null);
+  const [myTournaments, setMyTournaments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
@@ -15,9 +16,12 @@ export default function DashboardPage() {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
-        // Firestore se user data laao
         const data = await getUserData(currentUser.uid);
         setUserData(data);
+        
+        // User ke joined tournaments laao
+        const tournaments = await getUserTournaments(currentUser.uid);
+        setMyTournaments(tournaments);
       } else {
         router.push('/login');
       }
@@ -162,7 +166,7 @@ export default function DashboardPage() {
         }}>
           <div style={{ fontSize: '28px', marginBottom: '5px' }}>🏆</div>
           <div style={{ fontSize: '22px', color: '#ff6b00', fontWeight: 'bold' }}>
-            {userData?.tournamentsPlayed || 0}
+            {myTournaments.length}
           </div>
           <div style={{ fontSize: '12px', color: '#aaa', marginTop: '5px' }}>Tournaments</div>
         </div>
@@ -259,35 +263,68 @@ export default function DashboardPage() {
       {/* My Tournaments */}
       <div style={{ padding: '0 20px 20px' }}>
         <h3 style={{ color: '#ff6b00', fontSize: '20px', marginBottom: '15px' }}>
-          🏆 My Tournaments
+          🏆 My Tournaments ({myTournaments.length})
         </h3>
         
-        <div style={{
-          background: '#1a1a1a',
-          borderRadius: '12px',
-          padding: '40px 20px',
-          textAlign: 'center',
-          border: '1px solid #333'
-        }}>
-          <div style={{ fontSize: '40px', marginBottom: '10px' }}>🎯</div>
-          <p style={{ color: '#aaa', margin: '0 0 15px 0', fontSize: '14px' }}>
-            Aapne abhi koi tournament join nahi kiya
-          </p>
-          <Link href="/" style={{ textDecoration: 'none' }}>
-            <button style={{
-              background: 'linear-gradient(135deg, #ff6b00, #ff0040)',
-              color: 'white',
-              border: 'none',
-              padding: '12px 25px',
-              borderRadius: '8px',
-              fontSize: '15px',
-              fontWeight: 'bold',
-              cursor: 'pointer'
+        {myTournaments.length === 0 ? (
+          <div style={{
+            background: '#1a1a1a',
+            borderRadius: '12px',
+            padding: '40px 20px',
+            textAlign: 'center',
+            border: '1px solid #333'
+          }}>
+            <div style={{ fontSize: '40px', marginBottom: '10px' }}>🎯</div>
+            <p style={{ color: '#aaa', margin: '0 0 15px 0', fontSize: '14px' }}>
+              Aapne abhi koi tournament join nahi kiya
+            </p>
+            <Link href="/" style={{ textDecoration: 'none' }}>
+              <button style={{
+                background: 'linear-gradient(135deg, #ff6b00, #ff0040)',
+                color: 'white',
+                border: 'none',
+                padding: '12px 25px',
+                borderRadius: '8px',
+                fontSize: '15px',
+                fontWeight: 'bold',
+                cursor: 'pointer'
+              }}>
+                Browse Tournaments →
+              </button>
+            </Link>
+          </div>
+        ) : (
+          myTournaments.map((t: any) => (
+            <div key={t.id} style={{
+              background: '#1a1a1a',
+              borderRadius: '12px',
+              padding: '18px',
+              marginBottom: '15px',
+              border: '1px solid #333',
+              borderLeft: '4px solid #00ff88'
             }}>
-              Browse Tournaments →
-            </button>
-          </Link>
-        </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+                <h4 style={{ margin: 0, color: 'white', fontSize: '18px' }}>{t.title}</h4>
+                <span style={{ 
+                  color: '#00ff88', 
+                  fontSize: '12px', 
+                  background: 'rgba(0, 255, 136, 0.1)',
+                  padding: '4px 10px',
+                  borderRadius: '12px',
+                  fontWeight: 'bold'
+                }}>
+                  JOINED ✅
+                </span>
+              </div>
+              
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                <span style={{ color: '#aaa', fontSize: '13px' }}>⏰ {t.time}</span>
+                <span style={{ color: '#aaa', fontSize: '13px' }}>🏆 {t.prize}</span>
+                <span style={{ color: '#aaa', fontSize: '13px' }}>🎮 {t.mode}</span>
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       {/* Footer */}
