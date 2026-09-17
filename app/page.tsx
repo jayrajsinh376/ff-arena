@@ -1,21 +1,52 @@
 "use client";
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { auth } from './firebase';
+import { useRouter } from 'next/navigation';
+import { auth, getAllTournaments, joinTournament, hasUserJoined } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 
 export default function Home() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showMenu, setShowMenu] = useState(false);
+  const [tournaments, setTournaments] = useState<any[]>([]);
+  const [tournamentsLoading, setTournamentsLoading] = useState(true);
+  const [joinMessage, setJoinMessage] = useState("");
+  const [joinedIds, setJoinedIds] = useState<string[]>([]);
+  const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       setLoading(false);
+      
+      if (currentUser) {
+        // Check which tournaments user has joined
+        const allTournaments = await getAllTournaments();
+        const joined: string[] = [];
+        for (const t of allTournaments) {
+          const hasJoined = await hasUserJoined(t.id, currentUser.uid);
+          if (hasJoined) joined.push(t.id);
+        }
+        setJoinedIds(joined);
+      }
     });
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    loadTournaments();
+  }, []);
+
+  const loadTournaments = async () => {
+    try {
+      const data = await getAllTournaments();
+      setTournaments(data);
+    } catch (err) {
+      console.error(err);
+    }
+    setTournamentsLoading(false);
+  };
 
   const handleLogout = async () => {
     try {
@@ -26,12 +57,33 @@ export default function Home() {
     }
   };
 
-  const tournaments = [
-    { id: 1, title: "Solo Match", time: "Today 8 PM", prize: "100 Coins", slots: "45/50", mode: "Solo" },
-    { id: 2, title: "Duo Match", time: "Today 9 PM", prize: "200 Coins", slots: "30/50", mode: "Duo" },
-    { id: 3, title: "Squad Match", time: "Tomorrow 7 PM", prize: "500 Coins", slots: "40/50", mode: "Squad" },
-    { id: 4, title: "Solo Clash", time: "Tomorrow 8 PM", prize: "150 Coins", slots: "20/50", mode: "Solo" },
+  const handleJoin = async (tournamentId: string) => {
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+    
+    try {
+      await joinTournament(tournamentId, user);
+      setJoinMessage("✅ Successfully joined!");
+      setJoinedIds([...joinedIds, tournamentId]);
+      loadTournaments(); // Refresh
+      setTimeout(() => setJoinMessage(""), 3000);
+    } catch (err: any) {
+      setJoinMessage("⚠️ " + err.message);
+      setTimeout(() => setJoinMessage(""), 3000);
+    }
+  };
+
+  // Default tournaments (agar Firestore me koi nahi hai)
+  const defaultTournaments = [
+    { id: 'demo1', title: "Solo Match", time: "Today 8 PM", prize: "100 Coins", slots: "45/50", mode: "Solo", joined: 45, maxSlots: 50 },
+    { id: 'demo2', title: "Duo Match", time: "Today 9 PM", prize: "200 Coins", slots: "30/50", mode: "Duo", joined: 30, maxSlots: 50 },
+    { id: 'demo3', title: "Squad Match", time: "Tomorrow 7 PM", prize: "500 Coins", slots: "40/50", mode: "Squad", joined: 40, maxSlots: 50 },
+    { id: 'demo4', title: "Solo Clash", time: "Tomorrow 8 PM", prize: "150 Coins", slots: "20/50", mode: "Solo", joined: 20, maxSlots: 50 },
   ];
+
+  const displayTournaments = tournaments.length > 0 ? tournaments : defaultTournaments;
 
   return (
     <div style={{ background: '#0a0a0a', color: 'white', minHeight: '100vh' }}>
@@ -152,6 +204,20 @@ export default function Home() {
         )}
       </header>
 
+      {/* Join Message */}
+      {joinMessage && (
+        <div style={{
+          background: joinMessage.includes('✅') ? '#00ff88' : '#ff4444',
+          color: joinMessage.includes('✅') ? '#000' : 'white',
+          padding: '12px 20px',
+          textAlign: 'center',
+          fontSize: '14px',
+          fontWeight: 'bold'
+        }}>
+          {joinMessage}
+        </div>
+      )}
+
       {/* Hero */}
       <div style={{ 
         padding: '50px 20px', 
@@ -204,52 +270,68 @@ export default function Home() {
           🔥 Live Tournaments
         </h3>
         
-        {tournaments.map((t) => (
-          <div key={t.id} style={{
-            background: '#1a1a1a',
-            borderRadius: '12px',
-            padding: '18px',
-            marginBottom: '15px',
-            border: '1px solid #333',
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-              <h4 style={{ margin: 0, color: 'white', fontSize: '18px' }}>{t.title}</h4>
-              <span style={{ 
-                color: '#00ff88', 
-                fontSize: '12px', 
-                background: 'rgba(0, 255, 136, 0.1)',
-                padding: '4px 10px',
-                borderRadius: '12px',
-                fontWeight: 'bold'
-              }}>
-                FREE
-              </span>
-            </div>
-            
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '15px' }}>
-              <span style={{ color: '#aaa', fontSize: '13px' }}>⏰ {t.time}</span>
-              <span style={{ color: '#aaa', fontSize: '13px' }}>🏆 {t.prize}</span>
-              <span style={{ color: '#aaa', fontSize: '13px' }}>👥 {t.slots}</span>
-              <span style={{ color: '#aaa', fontSize: '13px' }}>🎮 {t.mode}</span>
-            </div>
-            
-            <Link href={user ? "/dashboard" : "/login"}>
-              <button style={{
-                width: '100%',
-                background: 'linear-gradient(135deg, #ff6b00, #ff0040)',
-                color: 'white',
-                border: 'none',
-                padding: '14px',
-                borderRadius: '8px',
-                fontSize: '16px',
-                fontWeight: 'bold',
-                cursor: 'pointer'
-              }}>
-                {user ? 'Join Free →' : 'Login to Join →'}
-              </button>
-            </Link>
+        {tournamentsLoading ? (
+          <div style={{ textAlign: 'center', padding: '40px', color: '#aaa' }}>
+            Loading tournaments...
           </div>
-        ))}
+        ) : (
+          displayTournaments.map((t: any) => {
+            const isJoined = joinedIds.includes(t.id);
+            const currentJoined = t.joined || 0;
+            const maxSlots = t.maxSlots || 50;
+            
+            return (
+              <div key={t.id} style={{
+                background: '#1a1a1a',
+                borderRadius: '12px',
+                padding: '18px',
+                marginBottom: '15px',
+                border: '1px solid #333',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+                  <h4 style={{ margin: 0, color: 'white', fontSize: '18px' }}>{t.title}</h4>
+                  <span style={{ 
+                    color: '#00ff88', 
+                    fontSize: '12px', 
+                    background: 'rgba(0, 255, 136, 0.1)',
+                    padding: '4px 10px',
+                    borderRadius: '12px',
+                    fontWeight: 'bold'
+                  }}>
+                    FREE
+                  </span>
+                </div>
+                
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '15px' }}>
+                  <span style={{ color: '#aaa', fontSize: '13px' }}>⏰ {t.time}</span>
+                  <span style={{ color: '#aaa', fontSize: '13px' }}>🏆 {t.prize}</span>
+                  <span style={{ color: '#aaa', fontSize: '13px' }}>👥 {currentJoined}/{maxSlots}</span>
+                  <span style={{ color: '#aaa', fontSize: '13px' }}>🎮 {t.mode}</span>
+                </div>
+                
+                <button
+                  onClick={() => handleJoin(t.id)}
+                  disabled={isJoined}
+                  style={{
+                    width: '100%',
+                    background: isJoined 
+                      ? '#00ff88' 
+                      : 'linear-gradient(135deg, #ff6b00, #ff0040)',
+                    color: isJoined ? '#000' : 'white',
+                    border: 'none',
+                    padding: '14px',
+                    borderRadius: '8px',
+                    fontSize: '16px',
+                    fontWeight: 'bold',
+                    cursor: isJoined ? 'default' : 'pointer'
+                  }}
+                >
+                  {isJoined ? '✅ Joined' : (user ? 'Join Free →' : 'Login to Join →')}
+                </button>
+              </div>
+            );
+          })
+        )}
       </div>
 
       {/* How It Works */}
