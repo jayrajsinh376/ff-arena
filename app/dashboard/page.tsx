@@ -2,18 +2,22 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { auth } from '../firebase';
+import { auth, getUserData } from '../firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 
 export default function DashboardPage() {
   const [user, setUser] = useState<any>(null);
+  const [userData, setUserData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
+        // Firestore se user data laao
+        const data = await getUserData(currentUser.uid);
+        setUserData(data);
       } else {
         router.push('/login');
       }
@@ -41,7 +45,7 @@ export default function DashboardPage() {
         alignItems: 'center',
         justifyContent: 'center'
       }}>
-        <p>Loading...</p>
+        <p style={{ color: '#ff6b00', fontSize: '18px' }}>Loading...</p>
       </div>
     );
   }
@@ -81,7 +85,7 @@ export default function DashboardPage() {
         </button>
       </header>
 
-      {/* Welcome */}
+      {/* Welcome Card */}
       <div style={{ padding: '30px 20px' }}>
         <div style={{
           background: 'linear-gradient(135deg, #ff6b00, #ff0040)',
@@ -118,8 +122,8 @@ export default function DashboardPage() {
           )}
           <div>
             <p style={{ margin: 0, fontSize: '14px', opacity: 0.9 }}>Welcome back,</p>
-            <h2 style={{ margin: '5px 0 0 0', fontSize: '22px' }}>
-              {user.displayName || 'User'}
+            <h2 style={{ margin: '5px 0 0 0', fontSize: '20px' }}>
+              {userData?.name || user.displayName || 'User'}
             </h2>
             <p style={{ margin: '3px 0 0 0', fontSize: '12px', opacity: 0.8 }}>
               {user.email}
@@ -143,7 +147,9 @@ export default function DashboardPage() {
           border: '1px solid #333'
         }}>
           <div style={{ fontSize: '28px', marginBottom: '5px' }}>🪙</div>
-          <div style={{ fontSize: '22px', color: '#ff6b00', fontWeight: 'bold' }}>0</div>
+          <div style={{ fontSize: '22px', color: '#ff6b00', fontWeight: 'bold' }}>
+            {userData?.coins || 0}
+          </div>
           <div style={{ fontSize: '12px', color: '#aaa', marginTop: '5px' }}>Coins</div>
         </div>
 
@@ -155,7 +161,9 @@ export default function DashboardPage() {
           border: '1px solid #333'
         }}>
           <div style={{ fontSize: '28px', marginBottom: '5px' }}>🏆</div>
-          <div style={{ fontSize: '22px', color: '#ff6b00', fontWeight: 'bold' }}>0</div>
+          <div style={{ fontSize: '22px', color: '#ff6b00', fontWeight: 'bold' }}>
+            {userData?.tournamentsPlayed || 0}
+          </div>
           <div style={{ fontSize: '12px', color: '#aaa', marginTop: '5px' }}>Tournaments</div>
         </div>
 
@@ -167,7 +175,9 @@ export default function DashboardPage() {
           border: '1px solid #333'
         }}>
           <div style={{ fontSize: '28px', marginBottom: '5px' }}>💀</div>
-          <div style={{ fontSize: '22px', color: '#ff6b00', fontWeight: 'bold' }}>0</div>
+          <div style={{ fontSize: '22px', color: '#ff6b00', fontWeight: 'bold' }}>
+            {userData?.totalKills || 0}
+          </div>
           <div style={{ fontSize: '12px', color: '#aaa', marginTop: '5px' }}>Total Kills</div>
         </div>
 
@@ -179,15 +189,77 @@ export default function DashboardPage() {
           border: '1px solid #333'
         }}>
           <div style={{ fontSize: '28px', marginBottom: '5px' }}>📊</div>
-          <div style={{ fontSize: '22px', color: '#ff6b00', fontWeight: 'bold' }}>#-</div>
+          <div style={{ fontSize: '22px', color: '#ff6b00', fontWeight: 'bold' }}>
+            #{userData?.rank || '-'}
+          </div>
           <div style={{ fontSize: '12px', color: '#aaa', marginTop: '5px' }}>Rank</div>
         </div>
       </div>
 
-      {/* My Tournaments */}
+      {/* Quick Actions */}
       <div style={{ padding: '20px' }}>
         <h3 style={{ color: '#ff6b00', fontSize: '20px', marginBottom: '15px' }}>
-          🎮 My Tournaments
+          ⚡ Quick Actions
+        </h3>
+        
+        <div style={{
+          background: '#1a1a1a',
+          borderRadius: '12px',
+          padding: '15px',
+          border: '1px solid #333'
+        }}>
+          <Link href="/" style={{ textDecoration: 'none' }}>
+            <div style={{
+              padding: '15px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              borderBottom: '1px solid #333',
+              cursor: 'pointer'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ fontSize: '22px' }}>🎮</span>
+                <span style={{ color: 'white', fontSize: '15px' }}>Join Tournament</span>
+              </div>
+              <span style={{ color: '#ff6b00' }}>→</span>
+            </div>
+          </Link>
+
+          <div style={{
+            padding: '15px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            borderBottom: '1px solid #333',
+            cursor: 'pointer'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ fontSize: '22px' }}>📊</span>
+              <span style={{ color: 'white', fontSize: '15px' }}>Leaderboard</span>
+            </div>
+            <span style={{ color: '#666', fontSize: '12px' }}>Coming soon</span>
+          </div>
+
+          <div style={{
+            padding: '15px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            cursor: 'pointer'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ fontSize: '22px' }}>👥</span>
+              <span style={{ color: 'white', fontSize: '15px' }}>Refer & Earn</span>
+            </div>
+            <span style={{ color: '#666', fontSize: '12px' }}>Coming soon</span>
+          </div>
+        </div>
+      </div>
+
+      {/* My Tournaments */}
+      <div style={{ padding: '0 20px 20px' }}>
+        <h3 style={{ color: '#ff6b00', fontSize: '20px', marginBottom: '15px' }}>
+          🏆 My Tournaments
         </h3>
         
         <div style={{
