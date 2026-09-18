@@ -139,3 +139,29 @@ export const getUserTournaments = async (userId) => {
   }
   return joined;
 };
+// Declare winner and give coins
+export const declareWinner = async (tournamentId, winnerId, prizeCoins) => {
+  try {
+    const { doc, updateDoc, increment } = await import('firebase/firestore');
+    
+    // 1. Winner ke coins update karo
+    const userRef = doc(db, 'users', winnerId);
+    await updateDoc(userRef, {
+      coins: increment(prizeCoins),
+      wins: increment(1)
+    });
+
+    // 2. Tournament update karo
+    const tournamentRef = doc(db, 'tournaments', tournamentId);
+    await updateDoc(tournamentRef, {
+      winnerId: winnerId,
+      status: 'completed',
+      completedAt: new Date()
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error declaring winner:', error);
+    return { success: false, error: error.message };
+  }
+};
