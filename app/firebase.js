@@ -1,5 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
+import { getStorage } from "firebase/storage";
 import { 
   getFirestore, 
   doc, 
@@ -27,6 +28,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+export const storage = getStorage(app);
 
 // User data save/update
 export const saveUserToFirestore = async (user) => {
@@ -83,7 +85,6 @@ export const getAllTournaments = async () => {
 export const joinTournament = async (tournamentId, user) => {
   if (!user) throw new Error('Login required');
   
-  // Check if already joined
   const participantRef = doc(db, 'tournaments', tournamentId, 'participants', user.uid);
   const participantSnap = await getDoc(participantRef);
   
@@ -91,7 +92,6 @@ export const joinTournament = async (tournamentId, user) => {
     throw new Error('Aap pehle se join kar chuke ho!');
   }
   
-  // Add participant
   await setDoc(participantRef, {
     name: user.displayName || 'User',
     email: user.email,
@@ -100,7 +100,6 @@ export const joinTournament = async (tournamentId, user) => {
     status: 'joined'
   });
   
-  // Update tournament joined count
   const tournamentRef = doc(db, 'tournaments', tournamentId);
   const tournamentSnap = await getDoc(tournamentRef);
   if (tournamentSnap.exists()) {
@@ -110,7 +109,6 @@ export const joinTournament = async (tournamentId, user) => {
     });
   }
   
-  // Update user tournamentsPlayed
   const userRef = doc(db, 'users', user.uid);
   const userSnap = await getDoc(userRef);
   if (userSnap.exists()) {
