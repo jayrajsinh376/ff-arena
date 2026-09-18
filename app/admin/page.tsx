@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { auth, createTournament, getAllTournaments } from '../firebase';
+import { auth, createTournament, getAllTournaments, declareWinner } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
 // ⚠️ YAHAN APNA ADMIN EMAIL DAALO
@@ -22,6 +22,12 @@ export default function AdminPage() {
   const [roomId, setRoomId] = useState("");
   const [password, setPassword] = useState("");
   const [maxSlots, setMaxSlots] = useState("50");
+  
+  // Winner declaration
+  const [selectedTournament, setSelectedTournament] = useState<any>(null);
+  const [participants, setParticipants] = useState<any[]>([]);
+  const [winnerId, setWinnerId] = useState("");
+  const [prizeCoins, setPrizeCoins] = useState("");
   
   const router = useRouter();
 
@@ -78,6 +84,50 @@ export default function AdminPage() {
       setTimeout(() => setMessage(""), 3000);
     } catch (err: any) {
       setMessage("❌ Error: " + err.message);
+    }
+  };
+
+  // Open winner selection modal
+  const openWinnerModal = async (tournament: any) => {
+    setSelectedTournament(tournament);
+    
+    // Load participants from Firestore
+    try {
+      const { getDocs, collection } = await import('firebase/firestore');
+      const { db } = await import('../firebase');
+      const participantsRef = collection(db, 'tournaments', tournament.id, 'participants');
+      const snapshot = await getDocs(participantsRef);
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setParticipants(data);
+    } catch (error) {
+      console.error('Error loading participants:', error);
+      setParticipants([]);
+    }
+  };
+
+  // Declare winner
+  const handleDeclareWinner = async () => {
+    if (!selectedTournament || !winnerId || !prizeCoins) {
+      alert('Winner aur coins select karein!');
+      return;
+    }
+
+    const result = await declareWinner(
+      selectedTournament.id,
+      winnerId,
+      parseInt(prizeCoins)
+    );
+
+    if (result.success) {
+      setMessage(`✅ Winner declared! ${prizeCoins} coins added.`);
+      setSelectedTournament(null);
+      setWinnerId("");
+      setPrizeCoins("");
+      setParticipants([]);
+      loadTournaments();
+      setTimeout(() => setMessage(""), 3000);
+    } else {
+      setMessage("❌ Error: " + result.error);
     }
   };
 
@@ -449,15 +499,194 @@ export default function AdminPage() {
                 borderRadius: '8px',
                 fontSize: '12px',
                 color: '#ff6b00',
-                fontFamily: 'monospace'
+                fontFamily: 'monospace',
+                marginBottom: '10px'
               }}>
                 <div>🔑 Room ID: {t.roomId}</div>
                 <div>🔒 Password: {t.password}</div>
               </div>
+
+              {/* Declare Winner Button */}
+              {t.status !== 'completed' && (
+                <button
+                  onClick={() => openWinnerModal(t)}
+                  style={{
+                    width: '100%',
+                    background: 'linear-gradient(135deg, #00ff88, #00cc66)',
+                    color: '#000',
+                    border: 'none',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    marginTop: '10px'
+                  }}
+                >
+                  🏆 Declare Winner
+                </button>
+              )}
+
+              {t.status === 'completed' && (
+                <div style={{
+                  background: '#00ff88',
+                  color: '#000',
+                  padding: '10px',
+                  borderRadius: '8px',
+                  textAlign: 'center',
+                  fontSize: '13px',
+                  fontWeight: 'bold',
+                  marginTop: '10px'
+                }}>
+                  ✅ Winner Declared
+                </div>
+              )}
             </div>
           ))
         )}
       </div>
+
+      {/* Winner Modal */}
+      {selectedTournament && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.9)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px',
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: '#1a1a1a',
+            borderRadius: '16px',
+            padding: '25px',
+            width: '100%',
+            maxWidth: '500px',
+            border: '2px solid #00ff88',
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}>
+            <h2 style={{ color: '#00ff88', marginTop: 0, textAlign: 'center' }}>
+              🏆 Declare Winner
+            </h2>
+            <p style={{ color: '#aaa', textAlign: 'center', fontSize: '14px' }}>
+              {selectedTournament.title}
+            </p>
+
+            {/* Participants List */}
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', color: '#aaa', fontSize: '13px', marginBottom: '8px' }}>
+                Select Winner ({participants.length} participants)
+              </label>
+              
+              {participants.length === 0 ? (
+                <div style={{
+                  background: '#0a0a0a',
+                  padding: '15px',
+                  borderRadius: '8px',
+                  color: '#666',
+                  textAlign: 'center',
+                  fontSize: '13px'
+                }}>
+                  Koi participant nahi hai
+                </div>
+              ) : (
+                <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                  {participants.map((p) => (
+                    <div
+                      key={p.id}
+                      onClick={() => setWinnerId(p.id)}
+                      style={{
+                        background: winnerId === p.id ? '#00ff88' : '#0a0a0a',
+                        color: winnerId === p.id ? '#000' : 'white',
+                        padding: '12px',
+                        borderRadius: '8px',
+                        marginBottom: '8px',
+                        cursor: 'pointer',
+                        border: '1px solid #333',
+                        fontSize: '14px'
+                      }}
+                    >
+                      <div style={{ fontWeight: 'bold' }}>{p.name || 'User'}</div>
+                      <div style={{ fontSize: '12px', opacity: 0.8 }}>{p.email}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Prize Coins */}
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', color: '#aaa', fontSize: '13px', marginBottom: '6px' }}>
+                Prize Coins
+              </label>
+              <input
+                type="number"
+                value={prizeCoins}
+                onChange={(e) => setPrizeCoins(e.target.value)}
+                placeholder="100"
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  background: '#0a0a0a',
+                  border: '1px solid #333',
+                  borderRadius: '8px',
+                  color: 'white',
+                  fontSize: '15px',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+
+            {/* Buttons */}
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={() => {
+                  setSelectedTournament(null);
+                  setWinnerId("");
+                  setPrizeCoins("");
+                  setParticipants([]);
+                }}
+                style={{
+                  flex: 1,
+                  background: '#333',
+                  color: 'white',
+                  border: 'none',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeclareWinner}
+                disabled={!winnerId || !prizeCoins}
+                style={{
+                  flex: 1,
+                  background: (!winnerId || !prizeCoins) ? '#666' : 'linear-gradient(135deg, #00ff88, #00cc66)',
+                  color: (!winnerId || !prizeCoins) ? '#aaa' : '#000',
+                  border: 'none',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  cursor: (!winnerId || !prizeCoins) ? 'not-allowed' : 'pointer'
+                }}
+              >
+                🏆 Declare Winner
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Footer */}
       <div style={{ padding: '30px 20px', textAlign: 'center', color: '#666', fontSize: '12px' }}>
