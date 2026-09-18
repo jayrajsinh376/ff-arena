@@ -48,8 +48,20 @@ export const saveUserToFirestore = async (user, referralCode = null) => {
   const userRef = doc(db, 'users', user.uid);
   const userSnap = await getDoc(userRef);
   
-  // Agar user already exist karta hai, toh kuch nahi karo
+  // Agar user already exist karta hai, toh sirf referralCode check karo
   if (userSnap.exists()) {
+    const existingData = userSnap.data();
+    
+    // Agar referralCode missing hai (purana user), toh generate karo
+    if (!existingData.referralCode) {
+      const newCode = generateReferralCode();
+      await updateDoc(userRef, {
+        referralCode: newCode,
+        referredBy: existingData.referredBy || null,
+        referralRewarded: existingData.referralRewarded || false
+      });
+      console.log('✅ Referral code generated for existing user:', newCode);
+    }
     return;
   }
 
@@ -107,21 +119,48 @@ export const saveUserToFirestore = async (user, referralCode = null) => {
     coins: welcomeCoins,
     tournamentsPlayed: 0,
     totalKills: 0,
-    referralCode: newReferralCode,   // User ka apna code
-    referredBy: referredBy,           // Jisne refer kiya (agar hai)
-    referralRewarded: false,          // Kya reward mila?
+    referralCode: newReferralCode,
+    referredBy: referredBy,
+    referralRewarded: false,
     joinedAt: serverTimestamp()
   });
 };
 
-// ==================== USER: Get Data ====================
+// ==================== USER: Get Data (with auto referral code for old users) ====================
 export const getUserData = async (userId) => {
   const userRef = doc(db, 'users', userId);
   const userSnap = await getDoc(userRef);
-  if (userSnap.exists()) {
-    return userSnap.data();
+  
+  if (!userSnap.exists()) {
+    return null;
   }
-  return null;
+
+  const userData = userSnap.data();
+
+  // Agar user ke paas referralCode nahi hai (purana user), toh generate karo
+  if (!userData.referralCode) {
+    const newCode = generateReferralCode();
+    
+    try {
+      await updateDoc(userRef, {
+        referralCode: newCode,
+        referredBy: userData.referredBy || null,
+        referralRewarded: userData.referralRewarded || false
+      });
+      console.log('✅ Referral code auto-generated for existing user:', newCode);
+    } catch (err) {
+      console.error('Error generating referral code:', err);
+    }
+
+    return {
+      ...userData,
+      referralCode: newCode,
+      referredBy: userData.referredBy || null,
+      referralRewarded: userData.referralRewarded || false
+    };
+  }
+
+  return userData;
 };
 
 // ==================== REFERRAL: Get User's Referrals ====================
@@ -143,7 +182,6 @@ export const getUserReferrals = async (userId) => {
 // ==================== REFERRAL: Complete Referral (called on tournament join) ====================
 const completeReferral = async (userId) => {
   try {
-    // 1. User ka data check karo
     const userRef = doc(db, 'users', userId);
     const userSnap = await getDoc(userRef);
     
@@ -151,11 +189,9 @@ const completeReferral = async (userId) => {
     
     const userData = userSnap.data();
     
-    // Agar already rewarded hai toh skip karo
     if (userData.referralRewarded === true) return;
     if (!userData.referredBy) return;
 
-    // 2. Referral record dhundho (pending)
     const q = query(
       collection(db, 'referrals'),
       where('referredUserId', '==', userId),
@@ -165,24 +201,20 @@ const completeReferral = async (userId) => {
 
     if (snapshot.empty) return;
 
-    // 3. Har pending referral ko complete karo
     for (const referralDoc of snapshot.docs) {
       const referralData = referralDoc.data();
       
-      // Referrer ko 100 coins do
       const referrerRef = doc(db, 'users', referralData.referrerId);
       await updateDoc(referrerRef, {
         coins: increment(100)
       });
 
-      // Referral record ko completed mark karo
       await updateDoc(doc(db, 'referrals', referralDoc.id), {
         status: 'completed',
         completedAt: serverTimestamp()
       });
     }
 
-    // 4. User ko mark karo ki reward mil gaya
     await updateDoc(userRef, {
       referralRewarded: true
     });
@@ -225,7 +257,6 @@ export const joinTournament = async (tournamentId, user) => {
     throw new Error('Aap pehle se join kar chuke ho!');
   }
   
-  // 1. Participant add karo
   await setDoc(participantRef, {
     name: user.displayName || 'User',
     email: user.email,
@@ -234,7 +265,6 @@ export const joinTournament = async (tournamentId, user) => {
     status: 'joined'
   });
   
-  // 2. Tournament joined count badhao
   const tournamentRef = doc(db, 'tournaments', tournamentId);
   const tournamentSnap = await getDoc(tournamentRef);
   if (tournamentSnap.exists()) {
@@ -243,13 +273,11 @@ export const joinTournament = async (tournamentId, user) => {
     });
   }
   
-  // 3. User ka tournamentsPlayed badhao
   const userRef = doc(db, 'users', user.uid);
   await updateDoc(userRef, {
     tournamentsPlayed: increment(1)
   });
 
-  // 4. Referral complete karo (agar user referral se aaya tha)
   await completeReferral(user.uid);
 };
 
@@ -277,14 +305,12 @@ export const getUserTournaments = async (userId) => {
 // ==================== ADMIN: Declare Winner ====================
 export const declareWinner = async (tournamentId, winnerId, prizeCoins) => {
   try {
-    // 1. Winner ke coins update karo
     const userRef = doc(db, 'users', winnerId);
     await updateDoc(userRef, {
       coins: increment(prizeCoins),
       wins: increment(1)
     });
 
-    // 2. Tournament update karo
     const tournamentRef = doc(db, 'tournaments', tournamentId);
     await updateDoc(tournamentRef, {
       winnerId: winnerId,
