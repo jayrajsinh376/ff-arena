@@ -2,13 +2,15 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { auth, getUserData, getUserTournaments } from '../firebase';
+import { auth, getUserData, getUserTournaments, getUserReferrals } from '../firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 
 export default function DashboardPage() {
   const [user, setUser] = useState<any>(null);
   const [userData, setUserData] = useState<any>(null);
   const [myTournaments, setMyTournaments] = useState<any[]>([]);
+  const [referrals, setReferrals] = useState<any[]>([]);
+  const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
@@ -19,9 +21,11 @@ export default function DashboardPage() {
         const data = await getUserData(currentUser.uid);
         setUserData(data);
         
-        // User ke joined tournaments laao
         const tournaments = await getUserTournaments(currentUser.uid);
         setMyTournaments(tournaments);
+
+        const refs = await getUserReferrals(currentUser.uid);
+        setReferrals(refs);
       } else {
         router.push('/login');
       }
@@ -37,6 +41,13 @@ export default function DashboardPage() {
     } catch (err) {
       console.error(err);
     }
+  };
+
+  const copyReferralLink = () => {
+    const link = `${window.location.origin}/login?ref=${userData?.referralCode}`;
+    navigator.clipboard.writeText(link);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   if (loading) {
@@ -55,6 +66,10 @@ export default function DashboardPage() {
   }
 
   if (!user) return null;
+
+  const pendingReferrals = referrals.filter(r => r.status === 'pending').length;
+  const completedReferrals = referrals.filter(r => r.status === 'completed').length;
+  const totalEarned = completedReferrals * 100;
 
   return (
     <div style={{ background: '#0a0a0a', color: 'white', minHeight: '100vh' }}>
@@ -178,11 +193,11 @@ export default function DashboardPage() {
           textAlign: 'center',
           border: '1px solid #333'
         }}>
-          <div style={{ fontSize: '28px', marginBottom: '5px' }}>💀</div>
+          <div style={{ fontSize: '28px', marginBottom: '5px' }}>👥</div>
           <div style={{ fontSize: '22px', color: '#ff6b00', fontWeight: 'bold' }}>
-            {userData?.totalKills || 0}
+            {completedReferrals}
           </div>
-          <div style={{ fontSize: '12px', color: '#aaa', marginTop: '5px' }}>Total Kills</div>
+          <div style={{ fontSize: '12px', color: '#aaa', marginTop: '5px' }}>Referrals</div>
         </div>
 
         <div style={{
@@ -192,16 +207,177 @@ export default function DashboardPage() {
           textAlign: 'center',
           border: '1px solid #333'
         }}>
-          <div style={{ fontSize: '28px', marginBottom: '5px' }}>📊</div>
+          <div style={{ fontSize: '28px', marginBottom: '5px' }}>💰</div>
           <div style={{ fontSize: '22px', color: '#ff6b00', fontWeight: 'bold' }}>
-            #{userData?.rank || '-'}
+            {totalEarned}
           </div>
-          <div style={{ fontSize: '12px', color: '#aaa', marginTop: '5px' }}>Rank</div>
+          <div style={{ fontSize: '12px', color: '#aaa', marginTop: '5px' }}>Earned</div>
+        </div>
+      </div>
+
+      {/* ═══════════ REFER & EARN SECTION ═══════════ */}
+      <div style={{ padding: '20px' }}>
+        <h3 style={{ color: '#ff6b00', fontSize: '20px', marginBottom: '15px' }}>
+          👥 Refer & Earn
+        </h3>
+        
+        <div style={{
+          background: 'linear-gradient(135deg, #1a1a1a, #2a1a0a)',
+          borderRadius: '12px',
+          padding: '20px',
+          border: '2px solid #ff6b00',
+        }}>
+          {/* Referral Code */}
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{
+              display: 'block',
+              color: '#aaa',
+              fontSize: '13px',
+              marginBottom: '8px'
+            }}>
+              🎁 Your Referral Code
+            </label>
+            <div style={{
+              background: '#0a0a0a',
+              padding: '15px',
+              borderRadius: '8px',
+              textAlign: 'center',
+              border: '2px dashed #ff6b00'
+            }}>
+              <div style={{
+                fontSize: '24px',
+                fontWeight: 'bold',
+                color: '#ff6b00',
+                letterSpacing: '3px',
+                fontFamily: 'monospace'
+              }}>
+                {userData?.referralCode || 'Loading...'}
+              </div>
+            </div>
+          </div>
+
+          {/* Referral Link + Copy Button */}
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{
+              display: 'block',
+              color: '#aaa',
+              fontSize: '13px',
+              marginBottom: '8px'
+            }}>
+              🔗 Share this link
+            </label>
+            <div style={{
+              display: 'flex',
+              gap: '10px'
+            }}>
+              <input
+                type="text"
+                value={`${typeof window !== 'undefined' ? window.location.origin : ''}/login?ref=${userData?.referralCode || ''}`}
+                readOnly
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  background: '#0a0a0a',
+                  border: '1px solid #333',
+                  borderRadius: '8px',
+                  color: '#aaa',
+                  fontSize: '12px',
+                  boxSizing: 'border-box',
+                  fontFamily: 'monospace'
+                }}
+              />
+              <button
+                onClick={copyReferralLink}
+                style={{
+                  background: copied ? '#00ff88' : 'linear-gradient(135deg, #ff6b00, #ff0040)',
+                  color: copied ? '#000' : 'white',
+                  border: 'none',
+                  padding: '12px 20px',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  minWidth: '100px'
+                }}
+              >
+                {copied ? '✅ Copied!' : '📋 Copy'}
+              </button>
+            </div>
+          </div>
+
+          {/* How It Works */}
+          <div style={{
+            background: 'rgba(0,0,0,0.3)',
+            borderRadius: '8px',
+            padding: '15px',
+            marginBottom: '15px'
+          }}>
+            <p style={{ margin: '0 0 8px 0', color: '#ff6b00', fontSize: '13px', fontWeight: 'bold' }}>
+              💡 How it works:
+            </p>
+            <p style={{ margin: '4px 0', color: '#aaa', fontSize: '12px' }}>
+              1️⃣ Apna link dost ko bhejo
+            </p>
+            <p style={{ margin: '4px 0', color: '#aaa', fontSize: '12px' }}>
+              2️⃣ Wo signup karega → <span style={{ color: '#00ff88' }}>usko 50 coins</span>
+            </p>
+            <p style={{ margin: '4px 0', color: '#aaa', fontSize: '12px' }}>
+              3️⃣ Wo tournament join karega → <span style={{ color: '#ff6b00' }}>aapko 100 coins</span>
+            </p>
+          </div>
+
+          {/* Referral Stats */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: '10px'
+          }}>
+            <div style={{
+              background: 'rgba(255, 200, 0, 0.1)',
+              padding: '12px',
+              borderRadius: '8px',
+              textAlign: 'center',
+              border: '1px solid rgba(255, 200, 0, 0.3)'
+            }}>
+              <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#ffc800' }}>
+                {pendingReferrals}
+              </div>
+              <div style={{ fontSize: '11px', color: '#aaa', marginTop: '3px' }}>
+                ⏳ Pending
+              </div>
+            </div>
+
+            <div style={{
+              background: 'rgba(0, 255, 136, 0.1)',
+              padding: '12px',
+              borderRadius: '8px',
+              textAlign: 'center',
+              border: '1px solid rgba(0, 255, 136, 0.3)'
+            }}>
+              <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#00ff88' }}>
+                {completedReferrals}
+              </div>
+              <div style={{ fontSize: '11px', color: '#aaa', marginTop: '3px' }}>
+                ✅ Completed
+              </div>
+            </div>
+          </div>
+
+          {pendingReferrals > 0 && (
+            <p style={{
+              margin: '12px 0 0 0',
+              color: '#ffc800',
+              fontSize: '12px',
+              textAlign: 'center'
+            }}>
+              ⏳ {pendingReferrals} referral{pendingReferrals > 1 ? 's' : ''} ka wait — jab wo tournament join karenge toh aapko 100 coins milenge!
+            </p>
+          )}
         </div>
       </div>
 
       {/* Quick Actions */}
-      <div style={{ padding: '20px' }}>
+      <div style={{ padding: '0 20px 20px' }}>
         <h3 style={{ color: '#ff6b00', fontSize: '20px', marginBottom: '15px' }}>
           ⚡ Quick Actions
         </h3>
@@ -229,34 +405,55 @@ export default function DashboardPage() {
             </div>
           </Link>
 
-          <div style={{
-            padding: '15px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            borderBottom: '1px solid #333',
-            cursor: 'pointer'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <span style={{ fontSize: '22px' }}>📊</span>
-              <span style={{ color: 'white', fontSize: '15px' }}>Leaderboard</span>
+          <Link href="/match-history" style={{ textDecoration: 'none' }}>
+            <div style={{
+              padding: '15px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              borderBottom: '1px solid #333',
+              cursor: 'pointer'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ fontSize: '22px' }}>📜</span>
+                <span style={{ color: 'white', fontSize: '15px' }}>Match History</span>
+              </div>
+              <span style={{ color: '#ff6b00' }}>→</span>
             </div>
-            <span style={{ color: '#666', fontSize: '12px' }}>Coming soon</span>
-          </div>
+          </Link>
 
-          <div style={{
-            padding: '15px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            cursor: 'pointer'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <span style={{ fontSize: '22px' }}>👥</span>
-              <span style={{ color: 'white', fontSize: '15px' }}>Refer & Earn</span>
+          <Link href="/upload" style={{ textDecoration: 'none' }}>
+            <div style={{
+              padding: '15px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              borderBottom: '1px solid #333',
+              cursor: 'pointer'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ fontSize: '22px' }}>📸</span>
+                <span style={{ color: 'white', fontSize: '15px' }}>Upload Screenshot</span>
+              </div>
+              <span style={{ color: '#ff6b00' }}>→</span>
             </div>
-            <span style={{ color: '#666', fontSize: '12px' }}>Coming soon</span>
-          </div>
+          </Link>
+
+          <Link href="/settings" style={{ textDecoration: 'none' }}>
+            <div style={{
+              padding: '15px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              cursor: 'pointer'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ fontSize: '22px' }}>⚙️</span>
+                <span style={{ color: 'white', fontSize: '15px' }}>Settings</span>
+              </div>
+              <span style={{ color: '#ff6b00' }}>→</span>
+            </div>
+          </Link>
         </div>
       </div>
 
@@ -317,11 +514,26 @@ export default function DashboardPage() {
                 </span>
               </div>
               
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '10px' }}>
                 <span style={{ color: '#aaa', fontSize: '13px' }}>⏰ {t.time}</span>
                 <span style={{ color: '#aaa', fontSize: '13px' }}>🏆 {t.prize}</span>
                 <span style={{ color: '#aaa', fontSize: '13px' }}>🎮 {t.mode}</span>
               </div>
+
+              {/* Room ID & Password */}
+              {t.roomId && (
+                <div style={{
+                  background: '#0a0a0a',
+                  padding: '10px',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  color: '#ff6b00',
+                  fontFamily: 'monospace'
+                }}>
+                  <div>🔑 Room ID: {t.roomId}</div>
+                  <div>🔒 Password: {t.password}</div>
+                </div>
+              )}
             </div>
           ))
         )}
