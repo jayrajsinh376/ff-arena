@@ -1,12 +1,20 @@
 'use client';
 import { useState } from 'react';
-import { storage, db, auth } from '../firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, auth } from '../firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 export default function UploadScreenshot() {
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [preview, setPreview] = useState(null);
+
+  const handleFileChange = (e) => {
+    const selected = e.target.files[0];
+    if (selected) {
+      setFile(selected);
+      setPreview(URL.createObjectURL(selected));
+    }
+  };
 
   const handleUpload = async () => {
     if (!file) return;
@@ -14,41 +22,78 @@ export default function UploadScreenshot() {
 
     try {
       const user = auth.currentUser;
-      const storageRef = ref(storage, `screenshots/${user.uid}/${Date.now()}_${file.name}`);
-      
-      await uploadBytes(storageRef, file);
-      const downloadURL = await getDownloadURL(storageRef);
+      if (!user) throw new Error('Login required');
+
+      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+      const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+
+      if (!cloudName || !uploadPreset) {
+        throw new Error('Cloudinary env variables missing');
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', uploadPreset);
+      formData.append('folder', `ff_arena/${user.uid}`);
+
+      const response = await fetch(
+        `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+        {
+          method: 'POST',
+          body: formData,
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error?.message || 'Upload failed');
+      }
 
       await addDoc(collection(db, 'matches'), {
         userId: user.uid,
-        screenshotURL: downloadURL,
+        userEmail: user.email,
+        screenshotURL: data.secure_url,
+        publicId: data.public_id,
         status: 'pending',
-        createdAt: serverTimestamp()
+        createdAt: serverTimestamp(),
       });
 
       alert('Screenshot upload ho gaya!');
       setFile(null);
+      setPreview(null);
     } catch (error) {
+      console.error(error);
       alert('Error: ' + error.message);
     }
     setUploading(false);
   };
 
   return (
-    <div className="p-6">
+    <div className="p-6 max-w-md mx-auto">
       <h1 className="text-2xl font-bold mb-4">Screenshot Upload</h1>
-      <input 
-        type="file" 
+
+      <input
+        type="file"
         accept="image/*"
-        onChange={(e) => setFile(e.target.files[0])}
-        className="mb-4"
+        onChange={handleFileChange}
+        className="mb-4 w-full"
       />
-      <button 
+
+      {preview && (
+        <img
+          src={preview}
+          alt="Preview"
+          className="mb-4 w-full rounded-lg border"
+        />
+      )}
+
+      <button
         onClick={handleUpload}
         disabled={uploading || !file}
-        className="bg-blue-500 text-white px-4 py-2 rounded"
+        className="bg-blue-500 text-white px-4 py-2 rounded w-full disabled:opacity-50"
       >
-        {uploading ? 'Uploading...' : 'Upload'}
+        {uploading ? 'Uploading...' : 'Upload Screenshot'}
       </button>
     </div>
   );
