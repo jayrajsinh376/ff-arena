@@ -439,7 +439,41 @@ export default function DashboardPage() {
             </div>
           </Link>
 
+          <Link href="/leaderboard" style={{ textDecoration: 'none' }}>
+            <div style={{
+              padding: '15px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              borderBottom: '1px solid #333',
+              cursor: 'pointer'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ fontSize: '22px' }}>🏆</span>
+                <span style={{ color: 'white', fontSize: '15px' }}>Leaderboard</span>
+              </div>
+              <span style={{ color: '#ff6b00' }}>→</span>
+            </div>
+          </Link>
+
           <Link href="/settings" style={{ textDecoration: 'none' }}>
+            <div style={{
+              padding: '15px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              borderBottom: '1px solid #333',
+              cursor: 'pointer'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ fontSize: '22px' }}>⚙️</span>
+                <span style={{ color: 'white', fontSize: '15px' }}>Settings</span>
+              </div>
+              <span style={{ color: '#ff6b00' }}>→</span>
+            </div>
+          </Link>
+
+          <Link href="/support" style={{ textDecoration: 'none' }}>
             <div style={{
               padding: '15px',
               display: 'flex',
@@ -448,8 +482,8 @@ export default function DashboardPage() {
               cursor: 'pointer'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span style={{ fontSize: '22px' }}>⚙️</span>
-                <span style={{ color: 'white', fontSize: '15px' }}>Settings</span>
+                <span style={{ fontSize: '22px' }}>💬</span>
+                <span style={{ color: 'white', fontSize: '15px' }}>Help & Support</span>
               </div>
               <span style={{ color: '#ff6b00' }}>→</span>
             </div>
