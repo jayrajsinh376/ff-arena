@@ -1,6 +1,6 @@
 "use client";
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { auth, saveUserToFirestore } from '../firebase';
 import { 
   signInWithPopup, 
@@ -13,9 +13,20 @@ export default function LoginPage() {
   const [isSignup, setIsSignup] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [referralCode, setReferralCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // URL se referral code read karo (?ref=FF12345)
+  useEffect(() => {
+    const refFromUrl = searchParams.get('ref');
+    if (refFromUrl) {
+      setReferralCode(refFromUrl.toUpperCase());
+      setIsSignup(true); // Agar referral link se aaya hai toh signup tab kholo
+    }
+  }, [searchParams]);
 
   const handleGoogleLogin = async () => {
     setLoading(true);
@@ -23,8 +34,7 @@ export default function LoginPage() {
     const provider = new GoogleAuthProvider();
     try {
       const result = await signInWithPopup(auth, provider);
-      // User ko Firestore me save karo
-      await saveUserToFirestore(result.user);
+      await saveUserToFirestore(result.user, referralCode);
       router.push("/dashboard");
     } catch (err: any) {
       setError(err.message);
@@ -39,7 +49,7 @@ export default function LoginPage() {
     try {
       if (isSignup) {
         const result = await createUserWithEmailAndPassword(auth, email, password);
-        await saveUserToFirestore(result.user);
+        await saveUserToFirestore(result.user, referralCode);
       } else {
         const result = await signInWithEmailAndPassword(auth, email, password);
         await saveUserToFirestore(result.user);
@@ -86,6 +96,46 @@ export default function LoginPage() {
         }}>
           {isSignup ? "Account banao" : "Login karo"}
         </p>
+
+        {/* Referral Code Input - Only for Signup */}
+        {isSignup && (
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{
+              display: 'block',
+              color: '#ff6b00',
+              fontSize: '13px',
+              marginBottom: '6px',
+              fontWeight: 'bold'
+            }}>
+              🎁 Referral Code (Optional)
+            </label>
+            <input
+              type="text"
+              placeholder="FF12345"
+              value={referralCode}
+              onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+              style={{
+                width: '100%',
+                padding: '14px',
+                background: '#0a0a0a',
+                border: '2px solid #ff6b00',
+                borderRadius: '8px',
+                color: 'white',
+                fontSize: '15px',
+                boxSizing: 'border-box',
+                textTransform: 'uppercase'
+              }}
+            />
+            <p style={{
+              color: '#00ff88',
+              fontSize: '12px',
+              marginTop: '6px',
+              marginBottom: 0
+            }}>
+              💰 Referral code daalenge toh 50 coins turant milenge!
+            </p>
+          </div>
+        )}
 
         <button 
           onClick={handleGoogleLogin}
