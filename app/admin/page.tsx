@@ -91,7 +91,6 @@ export default function AdminPage() {
   const openWinnerModal = async (tournament: any) => {
     setSelectedTournament(tournament);
     
-    // Load participants from Firestore
     try {
       const { getDocs, collection } = await import('firebase/firestore');
       const { db } = await import('../firebase');
@@ -129,6 +128,13 @@ export default function AdminPage() {
     } else {
       setMessage("❌ Error: " + result.error);
     }
+  };
+
+  // Logout function
+  const handleLogout = () => {
+    localStorage.removeItem('ffAdminLoggedIn');
+    localStorage.removeItem('ffAdminLoginTime');
+    router.push('/admin/login');
   };
 
   // Loading
@@ -224,27 +230,63 @@ export default function AdminPage() {
       {/* Header */}
       <header style={{ 
         background: '#1a1a1a', 
-        padding: '15px 20px', 
+        padding: '12px 15px', 
         display: 'flex', 
         justifyContent: 'space-between', 
         alignItems: 'center',
         borderBottom: '2px solid #ff6b00',
+        flexWrap: 'wrap',
+        gap: '10px'
       }}>
         <Link href="/" style={{ textDecoration: 'none' }}>
-          <h1 style={{ color: '#ff6b00', fontSize: '22px', margin: 0 }}>
+          <h1 style={{ color: '#ff6b00', fontSize: '18px', margin: 0 }}>
             🎮 FF Arena
           </h1>
         </Link>
-        <span style={{
-          background: '#ff6b00',
-          color: 'white',
-          padding: '6px 12px',
-          borderRadius: '20px',
-          fontSize: '12px',
-          fontWeight: 'bold'
-        }}>
-          👑 ADMIN
-        </span>
+
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <Link href="/" style={{ textDecoration: 'none' }}>
+            <button style={{
+              background: '#333',
+              color: 'white',
+              border: '1px solid #555',
+              padding: '8px 14px',
+              borderRadius: '20px',
+              fontSize: '12px',
+              fontWeight: 'bold',
+              cursor: 'pointer'
+            }}>
+              🏠 Home
+            </button>
+          </Link>
+
+          <button
+            onClick={handleLogout}
+            style={{
+              background: '#ff4444',
+              color: 'white',
+              border: 'none',
+              padding: '8px 14px',
+              borderRadius: '20px',
+              fontSize: '12px',
+              fontWeight: 'bold',
+              cursor: 'pointer'
+            }}
+          >
+            🚪 Logout
+          </button>
+
+          <span style={{
+            background: '#ff6b00',
+            color: 'white',
+            padding: '8px 14px',
+            borderRadius: '20px',
+            fontSize: '12px',
+            fontWeight: 'bold'
+          }}>
+            👑 ADMIN
+          </span>
+        </div>
       </header>
 
       {/* Message */}
@@ -506,7 +548,6 @@ export default function AdminPage() {
                 <div>🔒 Password: {t.password}</div>
               </div>
 
-              {/* Declare Winner Button */}
               {t.status !== 'completed' && (
                 <button
                   onClick={() => openWinnerModal(t)}
@@ -578,7 +619,6 @@ export default function AdminPage() {
               {selectedTournament.title}
             </p>
 
-            {/* Participants List */}
             <div style={{ marginBottom: '20px' }}>
               <label style={{ display: 'block', color: '#aaa', fontSize: '13px', marginBottom: '8px' }}>
                 Select Winner ({participants.length} participants)
@@ -620,7 +660,6 @@ export default function AdminPage() {
               )}
             </div>
 
-            {/* Prize Coins */}
             <div style={{ marginBottom: '20px' }}>
               <label style={{ display: 'block', color: '#aaa', fontSize: '13px', marginBottom: '6px' }}>
                 Prize Coins
@@ -643,7 +682,6 @@ export default function AdminPage() {
               />
             </div>
 
-            {/* Buttons */}
             <div style={{ display: 'flex', gap: '10px' }}>
               <button
                 onClick={() => {
