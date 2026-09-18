@@ -5,14 +5,20 @@ import { useRouter } from 'next/navigation';
 import { auth, createTournament, getAllTournaments, declareWinner } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
-// ⚠️ YAHAN APNA ADMIN EMAIL DAALO
+// ⚠️ ADMIN CONFIG
 const ADMIN_EMAIL = "jayrajsinhzala488@gmail.com";
+const ADMIN_PASSWORD = "FfArena@2026Admin"; // Jo Vercel mein rakha hai
 
 export default function AdminPage() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [tournaments, setTournaments] = useState<any[]>([]);
   const [message, setMessage] = useState("");
+  
+  // Password protection
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [passwordInput, setPasswordInput] = useState("");
+  const [passwordError, setPasswordError] = useState("");
   
   // Form fields
   const [title, setTitle] = useState("");
@@ -31,6 +37,14 @@ export default function AdminPage() {
   
   const router = useRouter();
 
+  // Check if admin is already authenticated
+  useEffect(() => {
+    const adminAuth = localStorage.getItem('ffAdminLoggedIn');
+    if (adminAuth === 'true') {
+      setIsAuthenticated(true);
+    }
+  }, []);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
@@ -40,14 +54,31 @@ export default function AdminPage() {
   }, []);
 
   useEffect(() => {
-    if (user && user.email === ADMIN_EMAIL) {
+    if (user && user.email === ADMIN_EMAIL && isAuthenticated) {
       loadTournaments();
     }
-  }, [user]);
+  }, [user, isAuthenticated]);
 
   const loadTournaments = async () => {
     const data = await getAllTournaments();
     setTournaments(data);
+  };
+
+  const handlePasswordSubmit = () => {
+    if (passwordInput === ADMIN_PASSWORD) {
+      localStorage.setItem('ffAdminLoggedIn', 'true');
+      setIsAuthenticated(true);
+      setPasswordError("");
+    } else {
+      setPasswordError("❌ Galat password! Dobara try karein.");
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('ffAdminLoggedIn');
+    setIsAuthenticated(false);
+    setPasswordInput("");
+    router.push('/');
   };
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -87,10 +118,8 @@ export default function AdminPage() {
     }
   };
 
-  // Open winner selection modal
   const openWinnerModal = async (tournament: any) => {
     setSelectedTournament(tournament);
-    
     try {
       const { getDocs, collection } = await import('firebase/firestore');
       const { db } = await import('../firebase');
@@ -104,7 +133,6 @@ export default function AdminPage() {
     }
   };
 
-  // Declare winner
   const handleDeclareWinner = async () => {
     if (!selectedTournament || !winnerId || !prizeCoins) {
       alert('Winner aur coins select karein!');
@@ -128,13 +156,6 @@ export default function AdminPage() {
     } else {
       setMessage("❌ Error: " + result.error);
     }
-  };
-
-  // Logout function
-  const handleLogout = () => {
-    localStorage.removeItem('ffAdminLoggedIn');
-    localStorage.removeItem('ffAdminLoginTime');
-    router.push('/admin/login');
   };
 
   // Loading
@@ -186,7 +207,7 @@ export default function AdminPage() {
     );
   }
 
-  // Not admin
+  // Not admin email
   if (user.email !== ADMIN_EMAIL) {
     return (
       <div style={{ 
@@ -202,9 +223,6 @@ export default function AdminPage() {
         <h1 style={{ color: '#ff4444' }}>🚫 Access Denied</h1>
         <p style={{ color: '#aaa', marginBottom: '20px' }}>
           Aap admin nahi ho. Ye page sirf admin ke liye hai.
-        </p>
-        <p style={{ color: '#666', fontSize: '12px', marginBottom: '20px' }}>
-          Aapka email: {user.email}
         </p>
         <Link href="/" style={{ textDecoration: 'none' }}>
           <button style={{
@@ -224,7 +242,116 @@ export default function AdminPage() {
     );
   }
 
-  // Admin panel
+  // 🔐 Password Screen — Admin authenticated nahi hai
+  if (!isAuthenticated) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: '#0a0a0a',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '20px'
+      }}>
+        <div style={{
+          background: '#1a1a1a',
+          borderRadius: '16px',
+          padding: '30px',
+          width: '100%',
+          maxWidth: '400px',
+          border: '2px solid #ff6b00',
+          boxShadow: '0 0 40px rgba(255, 107, 0, 0.3)'
+        }}>
+          <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+            <div style={{ fontSize: '48px' }}>🔐</div>
+            <h1 style={{
+              color: '#ff6b00',
+              fontSize: '24px',
+              margin: '10px 0',
+              textAlign: 'center'
+            }}>
+              ADMIN VERIFICATION
+            </h1>
+            <p style={{ color: '#aaa', fontSize: '14px', textAlign: 'center', margin: 0 }}>
+              Admin panel kholne ke liye password daalein
+            </p>
+          </div>
+
+          {passwordError && (
+            <div style={{
+              background: '#ff4444',
+              color: 'white',
+              padding: '12px',
+              borderRadius: '8px',
+              marginBottom: '15px',
+              fontSize: '14px',
+              textAlign: 'center'
+            }}>
+              {passwordError}
+            </div>
+          )}
+
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{
+              display: 'block',
+              color: '#aaa',
+              fontSize: '13px',
+              marginBottom: '6px'
+            }}>
+              Admin Password
+            </label>
+            <input
+              type="password"
+              value={passwordInput}
+              onChange={(e) => setPasswordInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handlePasswordSubmit()}
+              placeholder="••••••••"
+              autoFocus
+              style={{
+                width: '100%',
+                padding: '12px',
+                background: '#0a0a0a',
+                border: '1px solid #333',
+                borderRadius: '8px',
+                color: 'white',
+                fontSize: '15px',
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
+
+          <button
+            onClick={handlePasswordSubmit}
+            style={{
+              width: '100%',
+              background: 'linear-gradient(135deg, #ff6b00, #ff0040)',
+              color: 'white',
+              border: 'none',
+              padding: '15px',
+              borderRadius: '8px',
+              fontSize: '16px',
+              fontWeight: 'bold',
+              cursor: 'pointer'
+            }}
+          >
+            🔓 Unlock Admin Panel
+          </button>
+
+          <div style={{ textAlign: 'center', marginTop: '20px' }}>
+            <Link href="/" style={{
+              color: '#ff6b00',
+              fontSize: '13px',
+              textDecoration: 'none'
+            }}>
+              ← Back to Home
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Admin panel — authenticated
   return (
     <div style={{ background: '#0a0a0a', color: 'white', minHeight: '100vh' }}>
       {/* Header */}
