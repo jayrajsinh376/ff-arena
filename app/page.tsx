@@ -16,6 +16,8 @@ export default function Home() {
   const [tournamentsLoading, setTournamentsLoading] = useState(true);
   const [joinMessage, setJoinMessage] = useState("");
   const [joinedIds, setJoinedIds] = useState<string[]>([]);
+  const [showRoomModal, setShowRoomModal] = useState<any>(null);
+  const [copiedField, setCopiedField] = useState("");
   const router = useRouter();
 
   useEffect(() => {
@@ -59,22 +61,32 @@ export default function Home() {
     }
   };
 
-  const handleJoin = async (tournamentId: string) => {
+  const handleJoin = async (tournament: any) => {
     if (!user) {
       router.push('/login');
       return;
     }
     
     try {
-      await joinTournament(tournamentId, user);
+      await joinTournament(tournament.id, user);
       setJoinMessage("✅ Successfully joined!");
-      setJoinedIds([...joinedIds, tournamentId]);
+      setJoinedIds([...joinedIds, tournament.id]);
       loadTournaments();
+      
+      // Show Room ID/Password modal
+      setShowRoomModal(tournament);
+      
       setTimeout(() => setJoinMessage(""), 3000);
     } catch (err: any) {
       setJoinMessage("⚠️ " + err.message);
       setTimeout(() => setJoinMessage(""), 3000);
     }
+  };
+
+  const copyToClipboard = (text: string, field: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(""), 2000);
   };
 
   const defaultTournaments = [
@@ -107,7 +119,6 @@ export default function Home() {
           <div style={{ color: '#aaa', fontSize: '14px' }}>...</div>
         ) : user ? (
           <div style={{ position: 'relative', display: 'flex', gap: '8px', alignItems: 'center' }}>
-            {/* Admin Button - Only for admin */}
             {isAdmin && (
               <Link href="/admin">
                 <button style={{
@@ -183,54 +194,29 @@ export default function Home() {
                 </div>
                 
                 <Link href="/dashboard" style={{ textDecoration: 'none' }}>
-                  <div style={{
-                    padding: '10px',
-                    color: 'white',
-                    fontSize: '14px',
-                    cursor: 'pointer',
-                    borderRadius: '4px'
-                  }}>
+                  <div style={{ padding: '10px', color: 'white', fontSize: '14px', cursor: 'pointer', borderRadius: '4px' }}>
                     👤 Dashboard
                   </div>
                 </Link>
 
                 <Link href="/match-history" style={{ textDecoration: 'none' }}>
-                  <div style={{
-                    padding: '10px',
-                    color: 'white',
-                    fontSize: '14px',
-                    cursor: 'pointer',
-                    borderRadius: '4px'
-                  }}>
+                  <div style={{ padding: '10px', color: 'white', fontSize: '14px', cursor: 'pointer', borderRadius: '4px' }}>
                     📜 Match History
                   </div>
                 </Link>
 
                 <Link href="/upload" style={{ textDecoration: 'none' }}>
-                  <div style={{
-                    padding: '10px',
-                    color: 'white',
-                    fontSize: '14px',
-                    cursor: 'pointer',
-                    borderRadius: '4px'
-                  }}>
+                  <div style={{ padding: '10px', color: 'white', fontSize: '14px', cursor: 'pointer', borderRadius: '4px' }}>
                     📸 Upload Screenshot
                   </div>
                 </Link>
 
                 <Link href="/settings" style={{ textDecoration: 'none' }}>
-                  <div style={{
-                    padding: '10px',
-                    color: 'white',
-                    fontSize: '14px',
-                    cursor: 'pointer',
-                    borderRadius: '4px'
-                  }}>
+                  <div style={{ padding: '10px', color: 'white', fontSize: '14px', cursor: 'pointer', borderRadius: '4px' }}>
                     ⚙️ Settings
                   </div>
                 </Link>
 
-                {/* Admin Dashboard link in dropdown too */}
                 {isAdmin && (
                   <Link href="/admin" style={{ textDecoration: 'none' }}>
                     <div style={{
@@ -365,7 +351,7 @@ export default function Home() {
                 borderRadius: '12px',
                 padding: '18px',
                 marginBottom: '15px',
-                border: '1px solid #333',
+                border: isJoined ? '2px solid #00ff88' : '1px solid #333',
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
                   <h4 style={{ margin: 0, color: 'white', fontSize: '18px' }}>{t.title}</h4>
@@ -387,26 +373,66 @@ export default function Home() {
                   <span style={{ color: '#aaa', fontSize: '13px' }}>👥 {currentJoined}/{maxSlots}</span>
                   <span style={{ color: '#aaa', fontSize: '13px' }}>🎮 {t.mode}</span>
                 </div>
-                
-                <button
-                  onClick={() => handleJoin(t.id)}
-                  disabled={isJoined}
-                  style={{
-                    width: '100%',
-                    background: isJoined 
-                      ? '#00ff88' 
-                      : 'linear-gradient(135deg, #ff6b00, #ff0040)',
-                    color: isJoined ? '#000' : 'white',
-                    border: 'none',
-                    padding: '14px',
+
+                {/* Show Room ID/Password if joined */}
+                {isJoined && t.roomId && (
+                  <div style={{
+                    background: '#0a0a0a',
+                    padding: '12px',
                     borderRadius: '8px',
-                    fontSize: '16px',
-                    fontWeight: 'bold',
-                    cursor: isJoined ? 'default' : 'pointer'
-                  }}
-                >
-                  {isJoined ? '✅ Joined' : (user ? 'Join Free →' : 'Login to Join →')}
-                </button>
+                    marginBottom: '12px',
+                    border: '1px solid #00ff88'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                      <span style={{ color: '#aaa', fontSize: '12px' }}>🔑 Room ID</span>
+                      <span style={{ color: '#00ff88', fontSize: '14px', fontWeight: 'bold', fontFamily: 'monospace' }}>
+                        {t.roomId}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: '#aaa', fontSize: '12px' }}>🔒 Password</span>
+                      <span style={{ color: '#00ff88', fontSize: '14px', fontWeight: 'bold', fontFamily: 'monospace' }}>
+                        {t.password}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                
+                {isJoined ? (
+                  <button
+                    onClick={() => setShowRoomModal(t)}
+                    style={{
+                      width: '100%',
+                      background: '#00ff88',
+                      color: '#000',
+                      border: 'none',
+                      padding: '14px',
+                      borderRadius: '8px',
+                      fontSize: '16px',
+                      fontWeight: 'bold',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    🎯 View Room Details
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleJoin(t)}
+                    style={{
+                      width: '100%',
+                      background: 'linear-gradient(135deg, #ff6b00, #ff0040)',
+                      color: 'white',
+                      border: 'none',
+                      padding: '14px',
+                      borderRadius: '8px',
+                      fontSize: '16px',
+                      fontWeight: 'bold',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {user ? 'Join Free →' : 'Login to Join →'}
+                  </button>
+                )}
               </div>
             );
           })
@@ -425,6 +451,163 @@ export default function Home() {
           <p>6️⃣ Rewards redeem karo</p>
         </div>
       </div>
+
+      {/* Room Details Modal */}
+      {showRoomModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.9)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px',
+          zIndex: 2000
+        }}>
+          <div style={{
+            background: '#1a1a1a',
+            borderRadius: '16px',
+            padding: '25px',
+            width: '100%',
+            maxWidth: '450px',
+            border: '2px solid #00ff88',
+            boxShadow: '0 0 40px rgba(0, 255, 136, 0.3)'
+          }}>
+            {/* Success Icon */}
+            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+              <div style={{ fontSize: '50px' }}>✅</div>
+              <h2 style={{ color: '#00ff88', margin: '10px 0', fontSize: '22px', textAlign: 'center' }}>
+                Successfully Joined!
+              </h2>
+              <p style={{ color: '#aaa', margin: 0, fontSize: '14px', textAlign: 'center' }}>
+                {showRoomModal.title}
+              </p>
+            </div>
+
+            {/* Room ID */}
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{ display: 'block', color: '#aaa', fontSize: '13px', marginBottom: '6px' }}>
+                🔑 Room ID
+              </label>
+              <div style={{
+                display: 'flex',
+                gap: '8px'
+              }}>
+                <div style={{
+                  flex: 1,
+                  background: '#0a0a0a',
+                  padding: '15px',
+                  borderRadius: '8px',
+                  border: '2px dashed #00ff88',
+                  textAlign: 'center',
+                  fontSize: '20px',
+                  fontWeight: 'bold',
+                  color: '#00ff88',
+                  fontFamily: 'monospace',
+                  letterSpacing: '2px'
+                }}>
+                  {showRoomModal.roomId || '—'}
+                </div>
+                <button
+                  onClick={() => copyToClipboard(showRoomModal.roomId || '', 'roomId')}
+                  style={{
+                    background: copiedField === 'roomId' ? '#00ff88' : '#ff6b00',
+                    color: copiedField === 'roomId' ? '#000' : 'white',
+                    border: 'none',
+                    padding: '0 15px',
+                    borderRadius: '8px',
+                    fontSize: '18px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  {copiedField === 'roomId' ? '✅' : '📋'}
+                </button>
+              </div>
+            </div>
+
+            {/* Password */}
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', color: '#aaa', fontSize: '13px', marginBottom: '6px' }}>
+                🔒 Room Password
+              </label>
+              <div style={{
+                display: 'flex',
+                gap: '8px'
+              }}>
+                <div style={{
+                  flex: 1,
+                  background: '#0a0a0a',
+                  padding: '15px',
+                  borderRadius: '8px',
+                  border: '2px dashed #00ff88',
+                  textAlign: 'center',
+                  fontSize: '20px',
+                  fontWeight: 'bold',
+                  color: '#00ff88',
+                  fontFamily: 'monospace',
+                  letterSpacing: '2px'
+                }}>
+                  {showRoomModal.password || '—'}
+                </div>
+                <button
+                  onClick={() => copyToClipboard(showRoomModal.password || '', 'password')}
+                  style={{
+                    background: copiedField === 'password' ? '#00ff88' : '#ff6b00',
+                    color: copiedField === 'password' ? '#000' : 'white',
+                    border: 'none',
+                    padding: '0 15px',
+                    borderRadius: '8px',
+                    fontSize: '18px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  {copiedField === 'password' ? '✅' : '📋'}
+                </button>
+              </div>
+            </div>
+
+            {/* Time Info */}
+            <div style={{
+              background: 'rgba(255, 107, 0, 0.1)',
+              padding: '12px',
+              borderRadius: '8px',
+              marginBottom: '20px',
+              textAlign: 'center',
+              border: '1px solid rgba(255, 107, 0, 0.3)'
+            }}>
+              <p style={{ margin: 0, color: '#ff6b00', fontSize: '13px', fontWeight: 'bold' }}>
+                ⏰ Match Time: {showRoomModal.time}
+              </p>
+              <p style={{ margin: '5px 0 0 0', color: '#aaa', fontSize: '12px' }}>
+                Room join karne se pehle 10 minute pehle pahunchen
+              </p>
+            </div>
+
+            {/* Close Button */}
+            <button
+              onClick={() => setShowRoomModal(null)}
+              style={{
+                width: '100%',
+                background: 'linear-gradient(135deg, #ff6b00, #ff0040)',
+                color: 'white',
+                border: 'none',
+                padding: '14px',
+                borderRadius: '8px',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                cursor: 'pointer'
+              }}
+            >
+              🎮 Got it! Let's Play
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Footer */}
       <div style={{ padding: '30px 20px', textAlign: 'center', color: '#666', fontSize: '12px' }}>
