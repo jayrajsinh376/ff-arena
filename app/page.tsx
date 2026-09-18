@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation';
 import { auth, getAllTournaments, joinTournament, hasUserJoined } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 
+// ⚠️ Admin Email
+const ADMIN_EMAIL = "jayrajsinhzala488@gmail.com";
+
 export default function Home() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -21,7 +24,6 @@ export default function Home() {
       setLoading(false);
       
       if (currentUser) {
-        // Check which tournaments user has joined
         const allTournaments = await getAllTournaments();
         const joined: string[] = [];
         for (const t of allTournaments) {
@@ -67,7 +69,7 @@ export default function Home() {
       await joinTournament(tournamentId, user);
       setJoinMessage("✅ Successfully joined!");
       setJoinedIds([...joinedIds, tournamentId]);
-      loadTournaments(); // Refresh
+      loadTournaments();
       setTimeout(() => setJoinMessage(""), 3000);
     } catch (err: any) {
       setJoinMessage("⚠️ " + err.message);
@@ -75,7 +77,6 @@ export default function Home() {
     }
   };
 
-  // Default tournaments (agar Firestore me koi nahi hai)
   const defaultTournaments = [
     { id: 'demo1', title: "Solo Match", time: "Today 8 PM", prize: "100 Coins", slots: "45/50", mode: "Solo", joined: 45, maxSlots: 50 },
     { id: 'demo2', title: "Duo Match", time: "Today 9 PM", prize: "200 Coins", slots: "30/50", mode: "Duo", joined: 30, maxSlots: 50 },
@@ -84,6 +85,7 @@ export default function Home() {
   ];
 
   const displayTournaments = tournaments.length > 0 ? tournaments : defaultTournaments;
+  const isAdmin = user?.email === ADMIN_EMAIL;
 
   return (
     <div style={{ background: '#0a0a0a', color: 'white', minHeight: '100vh' }}>
@@ -104,7 +106,28 @@ export default function Home() {
         {loading ? (
           <div style={{ color: '#aaa', fontSize: '14px' }}>...</div>
         ) : user ? (
-          <div style={{ position: 'relative' }}>
+          <div style={{ position: 'relative', display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {/* Admin Button - Only for admin */}
+            {isAdmin && (
+              <Link href="/admin">
+                <button style={{
+                  background: 'linear-gradient(135deg, #ff6b00, #ff0040)',
+                  color: 'white',
+                  border: 'none',
+                  padding: '8px 14px',
+                  borderRadius: '20px',
+                  fontSize: '13px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px'
+                }}>
+                  👑 Admin
+                </button>
+              </Link>
+            )}
+
             <button
               onClick={() => setShowMenu(!showMenu)}
               style={{
@@ -170,6 +193,60 @@ export default function Home() {
                     👤 Dashboard
                   </div>
                 </Link>
+
+                <Link href="/match-history" style={{ textDecoration: 'none' }}>
+                  <div style={{
+                    padding: '10px',
+                    color: 'white',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    borderRadius: '4px'
+                  }}>
+                    📜 Match History
+                  </div>
+                </Link>
+
+                <Link href="/upload" style={{ textDecoration: 'none' }}>
+                  <div style={{
+                    padding: '10px',
+                    color: 'white',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    borderRadius: '4px'
+                  }}>
+                    📸 Upload Screenshot
+                  </div>
+                </Link>
+
+                <Link href="/settings" style={{ textDecoration: 'none' }}>
+                  <div style={{
+                    padding: '10px',
+                    color: 'white',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    borderRadius: '4px'
+                  }}>
+                    ⚙️ Settings
+                  </div>
+                </Link>
+
+                {/* Admin Dashboard link in dropdown too */}
+                {isAdmin && (
+                  <Link href="/admin" style={{ textDecoration: 'none' }}>
+                    <div style={{
+                      padding: '10px',
+                      color: '#ff6b00',
+                      fontSize: '14px',
+                      cursor: 'pointer',
+                      borderRadius: '4px',
+                      fontWeight: 'bold',
+                      borderTop: '1px solid #333',
+                      marginTop: '5px'
+                    }}>
+                      👑 Admin Panel
+                    </div>
+                  </Link>
+                )}
                 
                 <div
                   onClick={handleLogout}
@@ -178,7 +255,9 @@ export default function Home() {
                     color: '#ff4444',
                     fontSize: '14px',
                     cursor: 'pointer',
-                    borderRadius: '4px'
+                    borderRadius: '4px',
+                    borderTop: '1px solid #333',
+                    marginTop: '5px'
                   }}
                 >
                   🚪 Logout
