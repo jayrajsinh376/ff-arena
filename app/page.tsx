@@ -2,15 +2,16 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { auth, getAllTournaments, joinTournament, hasUserJoined } from './firebase';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { getAllTournaments, joinTournament, hasUserJoined } from './firebase';
+import { signOut } from 'firebase/auth';
+import { auth } from './firebase';
+import { useAuth } from './AuthContext';
 
 // ⚠️ Admin Email
 const ADMIN_EMAIL = "jayrajsinhzala488@gmail.com";
 
 export default function Home() {
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, userData, loading } = useAuth();
   const [showMenu, setShowMenu] = useState(false);
   const [tournaments, setTournaments] = useState<any[]>([]);
   const [tournamentsLoading, setTournamentsLoading] = useState(true);
@@ -20,23 +21,23 @@ export default function Home() {
   const [copiedField, setCopiedField] = useState("");
   const router = useRouter();
 
+  // Jab user login ho jaye, joined tournaments check karo
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
-      setLoading(false);
-      
-      if (currentUser) {
+    const loadJoined = async () => {
+      if (user) {
         const allTournaments = await getAllTournaments();
         const joined: string[] = [];
         for (const t of allTournaments) {
-          const hasJoined = await hasUserJoined(t.id, currentUser.uid);
+          const hasJoined = await hasUserJoined(t.id, user.uid);
           if (hasJoined) joined.push(t.id);
         }
         setJoinedIds(joined);
+      } else {
+        setJoinedIds([]);
       }
-    });
-    return () => unsubscribe();
-  }, []);
+    };
+    loadJoined();
+  }, [user]);
 
   useEffect(() => {
     loadTournaments();
@@ -119,6 +120,24 @@ export default function Home() {
           <div style={{ color: '#aaa', fontSize: '14px' }}>...</div>
         ) : user ? (
           <div style={{ position: 'relative', display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {/* Coins Display */}
+            {userData && (
+              <div style={{
+                background: 'rgba(255, 215, 0, 0.15)',
+                border: '1px solid #ffd700',
+                padding: '6px 12px',
+                borderRadius: '20px',
+                fontSize: '13px',
+                fontWeight: 'bold',
+                color: '#ffd700',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px'
+              }}>
+                🪙 {userData.coins || 0}
+              </div>
+            )}
+
             {isAdmin && (
               <Link href="/admin">
                 <button style={{
@@ -190,6 +209,9 @@ export default function Home() {
                   </div>
                   <div style={{ fontSize: '11px', color: '#aaa', marginTop: '4px' }}>
                     {user.email}
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#ffd700', marginTop: '4px', fontWeight: 'bold' }}>
+                    🪙 {userData?.coins || 0} Coins
                   </div>
                 </div>
                 
